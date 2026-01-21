@@ -1,5 +1,7 @@
 import os
 import shutil
+import time
+import glob
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter 
@@ -18,26 +20,44 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 llm = ChatGoogleGenerativeAI(model="gemma-3-27b-it", api_key=GOOGLE_API_KEY)
 
+# --- HELPER: ROBUST CLEANUP ---
+def cleanup_old_dbs():
+    """
+    Tries to remove old database folders. 
+    If a folder is locked by Windows, we SKIP it instead of crashing.
+    """
+    # Find all folders starting with 'chroma_db_'
+    db_folders = glob.glob("./chroma_db_*")
+    
+    for folder in db_folders:
+        try:
+            shutil.rmtree(folder)
+            print(f"🧹 Cleaned up old DB: {folder}")
+        except PermissionError:
+            print(f"⚠️ Could not delete {folder} (Locked by Windows). Skipping...")
+        except Exception as e:
+            print(f"⚠️ Error cleaning {folder}: {e}")
+
 # --- CORE FUNCTIONS ---
 def load_and_process_pdf(pdf_path):
     """
-    Ingests the PDF: Reads -> Splits -> Embeds -> Stores in DB.
+    Ingests the PDF with a UNIQUE database path to avoid file locks.
     """
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-    # SYSTEM DESIGN: "Fresh Ingestion"
-    # If a DB already exists, we delete it to ensure we don't mix old and new data.
-    if os.path.exists("./chroma_db"):
-        print(f"--- 🧹 Clearing old database to load {pdf_path}... ---")
-        shutil.rmtree("./chroma_db") 
+    # 1. Try to clean up old mess (but don't crash if we can't)
+    cleanup_old_dbs()
 
-    print("--- 1. Loading PDF... ---")
+    # 2. Create a UNIQUE folder name for this session
+    # This ensures we never collide with a locked file
+    unique_db_path = f"./chroma_db_{int(time.time())}"
+    
+    print(f"--- 1. Loading PDF to {unique_db_path}... ---")
     loader = PyPDFLoader(pdf_path)
     documents = loader.load()
 
     print("--- 2. Splitting Text... ---")
-    # chunk_overlap=200 prevents sentences from being cut in half at boundaries
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     final_documents = text_splitter.split_documents(documents)
     
@@ -45,15 +65,12 @@ def load_and_process_pdf(pdf_path):
     vector_db = Chroma.from_documents(
         documents=final_documents,
         embedding=embeddings,
-        persist_directory="./chroma_db"
+        persist_directory=unique_db_path
     )
     print("✅ Vector Database Created!")
     return vector_db, final_documents
 
 def ask_question(vector_db, question):
-    """
-    Retrieves relevant chunks and asks Gemini to answer based on them.
-    """
     print(f"--- Searching for: '{question}' ---")
     
     prompt_template = """
@@ -64,7 +81,6 @@ def ask_question(vector_db, question):
     """
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     
-    # RetrievalQA coordinates the "Search -> Prompt -> Answer" flow
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
@@ -77,12 +93,8 @@ def ask_question(vector_db, question):
     return result['result']
 
 def summarize_document(docs_list):
-    """
-    Sends the raw text of the chunks to the LLM for summarization.
-    """
-    print(f"--- Generating Summary for {len(docs_list)} chunks... ---")
-    # We join all chunk text into one giant string
-    full_text = "\n\n".join([doc.page_content for doc in docs_list])
+    print(f"--- Generating Summary... ---")
+    full_text = "\n\n".join([doc.page_content for doc in docs_list[:10]])
     
     prompt_template = """
     You are an expert summarizer. 
@@ -96,37 +108,3 @@ def summarize_document(docs_list):
     
     result = chain.invoke({"text": full_text})
     return result.content
-
-# --- MAIN EXECUTION ---
-if __name__ == "__main__":
-    
-    # SYSTEM DESIGN CONTROL:
-    # True = Delete DB and rebuild (use when PDF changes)
-    # False = Use existing DB (use when asking new questions to same PDF)
-    FORCE_REBUILD = True 
-
-    if FORCE_REBUILD or not os.path.exists("./chroma_db"):
-        print("--- ⚠️ Rebuild Mode Active ---")
-        db, docs_list = load_and_process_pdf("sample.pdf")
-    else:
-        print("--- 📂 Loading existing DB (Cache Mode) ---")
-        db = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-        
-        # Pull text out of DB so we can summarize it without reading the file
-        print("   🔄 Fetching text from DB...")
-        existing_data = db.get()
-        docs_list = [Document(page_content=text) for text in existing_data['documents']]
-
-    # 2. Run Test Questions
-    print("\n--- Test 1: Irrelevant Question ---")
-    print(f"AI Answer: {ask_question(db, 'How is the weather?')}")
-
-    print("\n--- Test 2: Real Question ---")
-    print(f"AI Answer: {ask_question(db, 'How do I get out of Jail?')}")
-
-    # 3. Run Summary
-    if docs_list:
-        print("\n--- Test 3: Summarize Document ---")
-        print(f"Summary: \n{summarize_document(docs_list)}")
-    else:
-        print("\n⚠️ Summary skipped (No documents found).")

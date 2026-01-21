@@ -1,16 +1,21 @@
-# Secrets
+# --- Secrets ---
 .env
 
-# Python
+# --- Python & Cache ---
 __pycache__/
 *.pyc
 
-# Virtual Environment
+# --- Virtual Environment ---
 venv/
 .venv/
 
-# Database (Too big for GitHub)
+# --- Application Data (Ignored) ---
+# 1. Ignore the temp file used by Streamlit
+temp_uploaded.pdf
+
+# 2. Ignore ANY folder that starts with 'chroma_db_' (The wildcard * handles the timestamp)
+chroma_db_*/
 chroma_db/
 
-# Mac/Windows system files
+# --- System Files ---
 .DS_Store
