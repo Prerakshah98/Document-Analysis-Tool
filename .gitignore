@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environment
+venv/
+.venv/
+
+# Database (Too big for GitHub)
+chroma_db/
+
+# Mac/Windows system files
+.DS_Store
