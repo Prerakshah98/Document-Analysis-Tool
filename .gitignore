@@ -12,6 +12,7 @@ venv/
 # --- Application Data (Ignored) ---
 # 1. Ignore the temp file used by Streamlit
 temp_uploaded.pdf
+sample.pdf
 
 # 2. Ignore ANY folder that starts with 'chroma_db_' (The wildcard * handles the timestamp)
 chroma_db_*/
