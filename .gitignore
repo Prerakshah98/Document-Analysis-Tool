@@ -17,6 +17,7 @@ sample.pdf
 # 2. Ignore ANY folder that starts with 'chroma_db_' (The wildcard * handles the timestamp)
 chroma_db_*/
 chroma_db/
+.devcontainer
 
 # --- System Files ---
 .DS_Store
