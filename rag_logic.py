@@ -22,34 +22,31 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatGoogleGenerativeAI(model="gemma-3-27b-it", api_key=GOOGLE_API_KEY)
 
-# --- HELPER: ROBUST CLEANUP ---
-def cleanup_old_dbs():
-    """
-    Tries to remove old database folders. 
-    If a folder is locked by Windows, we SKIP it instead of crashing.
-    """
-    # Find all folders starting with 'chroma_db_'
-    db_folders = glob.glob("./chroma_db_*")
+# # --- HELPER: ROBUST CLEANUP ---
+# def cleanup_old_dbs():
+#     """
+#     Tries to remove old database folders. 
+#     If a folder is locked by Windows, we SKIP it instead of crashing.
+#     """
+#     # Find all folders starting with 'chroma_db_'
+#     db_folders = glob.glob("./chroma_db_*")
     
-    for folder in db_folders:
-        try:
-            shutil.rmtree(folder)
-            print(f"🧹 Cleaned up old DB: {folder}")
-        except PermissionError:
-            print(f"⚠️ Could not delete {folder} (Locked by Windows). Skipping...")
-        except Exception as e:
-            print(f"⚠️ Error cleaning {folder}: {e}")
+#     for folder in db_folders:
+#         try:
+#             shutil.rmtree(folder)
+#             print(f"🧹 Cleaned up old DB: {folder}")
+#         except PermissionError:
+#             print(f"⚠️ Could not delete {folder} (Locked by Windows). Skipping...")
+#         except Exception as e:
+#             print(f"⚠️ Error cleaning {folder}: {e}")
 
 # --- CORE FUNCTIONS ---
-def load_and_process_pdf(pdf_path):
+def load_and_process_pdf(pdf_path, session_id):
     """
     Ingests the PDF with a UNIQUE database path to avoid file locks.
     """
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
-
-    # 1. Try to clean up old mess (but don't crash if we can't)
-    cleanup_old_dbs()
 
     # 2. Create a UNIQUE folder name for this session
     # This ensures we never collide with a locked file
@@ -70,6 +67,7 @@ def load_and_process_pdf(pdf_path):
         persist_directory=unique_db_path
     )
     print("✅ Vector Database Created!")
+    
     return vector_db, final_documents
 
 def ask_question(vector_db, question):
