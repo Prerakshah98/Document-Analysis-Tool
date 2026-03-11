@@ -10,16 +10,20 @@ from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_classic.chains import RetrievalQA
-from langchain_core.documents import Document  
-from langchain_huggingface import HuggingFaceEmbeddings
+
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 
 # 1. Load Secrets
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 # 2. Configure Models
 # embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+embeddings = HuggingFaceInferenceAPIEmbeddings(
+    api_key=HF_TOKEN, 
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 llm = ChatGoogleGenerativeAI(model="gemma-3-27b-it", api_key=GOOGLE_API_KEY)
 
 # # --- HELPER: ROBUST CLEANUP ---
