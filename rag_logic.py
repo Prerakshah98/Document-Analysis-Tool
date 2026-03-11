@@ -1,60 +1,42 @@
 import os
-import shutil
-import time
-import glob
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_classic.chains import RetrievalQA
 
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+# --- IMPORT GOOGLE MODELS ---
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 # 1. Load Secrets
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-HF_TOKEN = os.getenv("HF_TOKEN")
 
 # 2. Configure Models
-# embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-embeddings = HuggingFaceInferenceAPIEmbeddings(
-    api_key=HF_TOKEN, 
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+# We use text-embedding-004 for fast, free, and memory-light embeddings
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004", 
+    google_api_key=GOOGLE_API_KEY
 )
-llm = ChatGoogleGenerativeAI(model="gemma-3-27b-it", api_key=GOOGLE_API_KEY)
 
-# # --- HELPER: ROBUST CLEANUP ---
-# def cleanup_old_dbs():
-#     """
-#     Tries to remove old database folders. 
-#     If a folder is locked by Windows, we SKIP it instead of crashing.
-#     """
-#     # Find all folders starting with 'chroma_db_'
-#     db_folders = glob.glob("./chroma_db_*")
-    
-#     for folder in db_folders:
-#         try:
-#             shutil.rmtree(folder)
-#             print(f"🧹 Cleaned up old DB: {folder}")
-#         except PermissionError:
-#             print(f"⚠️ Could not delete {folder} (Locked by Windows). Skipping...")
-#         except Exception as e:
-#             print(f"⚠️ Error cleaning {folder}: {e}")
+# Keep your Gemma model for answering questions
+llm = ChatGoogleGenerativeAI(
+    model="gemma-3-27b-it", 
+    api_key=GOOGLE_API_KEY
+)
 
 # --- CORE FUNCTIONS ---
+
 def load_and_process_pdf(pdf_path, session_id):
     """
-    Ingests the PDF with a UNIQUE database path to avoid file locks.
+    Ingests the PDF and saves the vector database to a session-specific folder.
     """
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-    # 2. Create a UNIQUE folder name for this session
-    # This ensures we never collide with a locked file
-    unique_db_path = f"./chroma_db_{int(time.time())}"
+    # Ensure the database folder is strictly named after the unique session ID
+    unique_db_path = f"./chroma_db_{session_id}"
     
     print(f"--- 1. Loading PDF to {unique_db_path}... ---")
     loader = PyPDFLoader(pdf_path)
@@ -70,7 +52,7 @@ def load_and_process_pdf(pdf_path, session_id):
         embedding=embeddings,
         persist_directory=unique_db_path
     )
-    print("✅ Vector Database Created!")
+    print("✅ Vector Database Created Successfully!")
     
     return vector_db, final_documents
 
