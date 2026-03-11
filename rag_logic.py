@@ -14,9 +14,8 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # 2. Configure Models
-# We use text-embedding-004 for fast, free, and memory-light embeddings
 embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/text-embedding-004", 
+    model="models/gemini-embedding-001", 
     google_api_key=GOOGLE_API_KEY
 )
 
