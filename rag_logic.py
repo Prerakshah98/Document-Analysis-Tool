@@ -94,3 +94,4 @@ def summarize_document(docs_list):
     
     result = chain.invoke({"text": full_text})
     return result.content
+
