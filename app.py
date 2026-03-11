@@ -3,7 +3,7 @@ import requests
 import os
 import uuid  # NEW: For generating unique IDs
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "https://document-analysis-tool.onrender.com"
 
 st.set_page_config(page_title="DocuMind AI", page_icon="🧠", layout="wide")
 
