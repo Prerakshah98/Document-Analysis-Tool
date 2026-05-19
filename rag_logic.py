@@ -21,7 +21,7 @@ embeddings = GoogleGenerativeAIEmbeddings(
 
 # Keep your Gemma model for answering questions
 llm = ChatGoogleGenerativeAI(
-    model="gemma-3-27b-it", 
+    model="gemini-2.0-flash", 
     api_key=GOOGLE_API_KEY
 )
 
